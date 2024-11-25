@@ -61,13 +61,13 @@ class StopEvent:
 
     def to_string(self):
         """Convert the StopEvent instance to a dictionary."""
-        estTime = self.estimated.strftime("%H:%M")
+        est_time = self.estimated.strftime("%H:%M")
         str_stop = (
             self.transportation_nr
             + " "
             + self.transportation_direction
             + ": "
-            + estTime
+            + est_time
             + " ("
             + str(self.gap)
             + "min delay)"

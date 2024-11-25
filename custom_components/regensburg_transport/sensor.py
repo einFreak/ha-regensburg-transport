@@ -31,7 +31,7 @@ from .const import (  # pylint: disable=unused-import
     DOMAIN,  # noqa: F401
     SCAN_INTERVAL,  # noqa: F401
 )
-from .stopEvent import StopEvent
+from .stop_event import StopEvent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ class NextDepartureSensor(RegensburgTransportSensor):
     def name(self) -> str:
         """Return the name of the sensor."""
         # return self.sensor_name or f"Stop ID: {self.stop_id}"
-        return "Next Departure " + self.sensor_shortname
+        return f"Next Departure {self.sensor_shortname}"
 
     @property
     def icon(self) -> str:
@@ -215,7 +215,7 @@ class DelaySensor(RegensburgTransportSensor):
     def name(self) -> str:
         """Return the name of the sensor."""
         # return self.sensor_name or f"Stop ID: {self.stop_id}"
-        return "Delay " + self.sensor_shortname
+        return f"Delay {self.sensor_shortname}"
 
     @property
     def icon(self) -> str:
@@ -234,7 +234,8 @@ class DelaySensor(RegensburgTransportSensor):
         next_departure = self.next_departure()
         if next_departure:
             dif = next_departure.estimated - next_departure.planned
-            return dif.total_seconds() / 60
+            minute_diff = dif.total_seconds() / 60
+            return int(minute_diff)
         return "N/A"
 
     def next_departure(self) -> StopEvent | None:

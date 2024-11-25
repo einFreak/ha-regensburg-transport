@@ -4,8 +4,10 @@
   "codeowners": ["@einFreak"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://www.home-assistant.io/integrations/regensburg_transport",
+  "documentation": "https://github.com/einFreak/ha-regensburg-transport/",
+  "issue_tracker": "https://github.com/einFreak/ha-regensburg-transport/issues",
   "integration_type": "device",
   "iot_class": "cloud_polling",
-  "requirements": []
+  "requirements": [],
+  "version": "0.1.0"
 }
