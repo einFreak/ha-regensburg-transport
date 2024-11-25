@@ -1,5 +1,6 @@
 {
-  "name": "Berlin (BVG) and Brandenburg (VBB) transport",
-  "hide_default_branch": false,
-  "render_readme": true
-}
+    "name": "Regensburg (RVV) transport",
+    "hide_default_branch": false,
+    "render_readme": true,
+    "country": ["DE"]
+  }

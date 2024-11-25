@@ -1,32 +1,26 @@
-# mypy: disable-error-code="attr-defined,call-arg"
-"""The Berlin (BVG) and Brandenburg (VBB) transport integration."""
+"""Config flow for Regensburg Transport integration."""
+
 from __future__ import annotations
 
+import json
 import logging
+from typing import Any
 
-from typing import Any, Optional
 import requests
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
-import homeassistant.helpers.config_validation as cv
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.helpers import selector
+import homeassistant.helpers.config_validation as cv
 
 from .const import (
     API_ENDPOINT,
-    API_MAX_RESULTS,
-    CONF_DEPARTURES_STOP_ID,
     CONF_DEPARTURES_NAME,
-    CONF_DEPARTURES_DIRECTION,
-    CONF_DEPARTURES_EXCLUDED_STOPS,
-    CONF_DEPARTURES_DURATION,
-    CONF_DEPARTURES_WALKING_TIME,
-    CONF_SHOW_API_LINE_COLORS,
-    DOMAIN, # noqa
+    CONF_DEPARTURES_SHORT_NAME,
+    CONF_DEPARTURES_STOP_ID,
+    DOMAIN,
 )
-
-from .sensor import TRANSPORT_TYPES_SCHEMA
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,66 +28,58 @@ CONF_SEARCH = "search"
 CONF_FOUND_STOPS = "found_stops"
 CONF_SELECTED_STOP = "selected_stop"
 
-
-DATA_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONF_DEPARTURES_DIRECTION): cv.string,
-        vol.Optional(CONF_DEPARTURES_EXCLUDED_STOPS): cv.string,
-        vol.Optional(CONF_DEPARTURES_DURATION): cv.positive_int,
-        vol.Optional(CONF_DEPARTURES_WALKING_TIME, default=1): cv.positive_int,
-        vol.Optional(CONF_SHOW_API_LINE_COLORS, default=False): cv.boolean,
-        **TRANSPORT_TYPES_SCHEMA,
-    }
-)
-
 NAME_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_SEARCH): cv.string,
     }
 )
 
-# IPv6 is broken, see: https://github.com/public-transport/transport.rest/issues/20
-requests.packages.urllib3.util.connection.HAS_IPV6 = False
 
-
-def get_stop_id(name) -> Optional[list[dict[str, Any]]]:
+def get_stop_id(name) -> list[dict[str, Any]] | None:
+    """Fetch stop IDs based on the provided name."""
     try:
         response = requests.get(
-            url=f"{API_ENDPOINT}/locations",
+            url=f"{API_ENDPOINT}/XML_STOPFINDER_REQUEST",
             params={
-                "query": name,
-                "results": API_MAX_RESULTS,
+                "commonMacro": "stopfinder",
+                "outputFormat": "rapidJSON",
+                "type_sf": "any",
+                "name_sf": name,
             },
             timeout=30,
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError as ex:
-        _LOGGER.warning(f"API error: {ex}")
+        _LOGGER.warning("API error: %s", ex)
         return []
     except requests.exceptions.Timeout as ex:
-        _LOGGER.warning(f"API timeout: {ex}")
+        _LOGGER.warning("API timeout: %s", ex)
         return []
 
-    _LOGGER.debug(f"OK: stops for {name}: {response.text}")
+    _LOGGER.debug("OK: stops for %s: %s", name, response.text)
 
     # parse JSON response
     try:
-        stops = response.json()
-    except requests.exceptions.InvalidJSONError as ex:
-        _LOGGER.error(f"API invalid JSON: {ex}")
+        stops = json.loads(response.text).get("locations")
+    except json.JSONDecodeError as ex:
+        _LOGGER.error("API invalid JSON: %s", ex)
         return []
 
     # convert api data into objects
     return [
-        {CONF_DEPARTURES_NAME: stop["name"], CONF_DEPARTURES_STOP_ID: stop["id"]}
+        {
+            CONF_DEPARTURES_NAME: stop.get("name"),
+            CONF_DEPARTURES_STOP_ID: stop.get("id"),
+            CONF_DEPARTURES_SHORT_NAME: stop.get("disassembledName"),
+        }
         for stop in stops
-        if stop["type"] == "stop"
+        if stop.get("isGlobalId")
     ]
 
 
-def list_stops(stops) -> Optional[vol.Schema]:
-    """Provides a drop down list of stops"""
-    schema = vol.Schema(
+def list_stops(stops) -> vol.Schema | None:
+    """Provide a drop down list of stops."""
+    return vol.Schema(
         {
             vol.Required(CONF_SELECTED_STOP, default=False): selector.SelectSelector(
                 selector.SelectSelectorConfig(
@@ -107,11 +93,13 @@ def list_stops(stops) -> Optional[vol.Schema]:
         }
     )
 
-    return schema
 
-
+@config_entries.HANDLERS.register(DOMAIN)
 class TransportConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle the config flow for Regensburg Transport integration."""
+
     VERSION = 1
+    MINOR_VERSION = 1
 
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
@@ -121,8 +109,21 @@ class TransportConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
+        # if user_input is not None:
+        #     try:
+        #         info = await validate_input(self.hass, user_input)
+        #     except CannotConnect:
+        #         errors["base"] = "cannot_connect"
+        #     except InvalidAuth:
+        #         errors["base"] = "invalid_auth"
+        #     except Exception:
+        #         _LOGGER.exception("Unexpected exception")
+        #         errors["base"] = "unknown"
+        #     else:
+        #         return self.async_create_entry(title=info["title"], data=user_input)
+
         if user_input is None:
             return self.async_show_form(
                 step_id="user",
@@ -134,14 +135,22 @@ class TransportConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         _LOGGER.debug(
-            f"OK: found stops for {user_input[CONF_SEARCH]}: {self.data[CONF_FOUND_STOPS]}"
+            "OK: found stops for %s: %s",
+            user_input[CONF_SEARCH],
+            self.data[CONF_FOUND_STOPS],
         )
 
         return await self.async_step_stop()
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the reconfiguration."""
+        return await self.async_step_user(user_input)
+
     async def async_step_stop(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         if user_input is None:
             return self.async_show_form(
@@ -151,7 +160,11 @@ class TransportConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         selected_stop = next(
-            (stop[CONF_DEPARTURES_NAME], stop[CONF_DEPARTURES_STOP_ID])
+            (
+                stop[CONF_DEPARTURES_NAME],
+                stop[CONF_DEPARTURES_STOP_ID],
+                stop[CONF_DEPARTURES_SHORT_NAME],
+            )
             for stop in self.data[CONF_FOUND_STOPS]
             if user_input[CONF_SELECTED_STOP]
             == f"{stop[CONF_DEPARTURES_NAME]} [{stop[CONF_DEPARTURES_STOP_ID]}]"
@@ -159,25 +172,14 @@ class TransportConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         (
             self.data[CONF_DEPARTURES_NAME],
             self.data[CONF_DEPARTURES_STOP_ID],
+            self.data[CONF_DEPARTURES_SHORT_NAME],
         ) = selected_stop
-        _LOGGER.debug(f"OK: selected stop {selected_stop[0]} [{selected_stop[1]}]")
-
-        return await self.async_step_details()
-
-    async def async_step_details(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle the details."""
-        if user_input is None:
-            return self.async_show_form(
-                step_id="details",
-                data_schema=DATA_SCHEMA,
-                errors={},
-            )
+        _LOGGER.debug("OK: selected stop %s [%s]", selected_stop[0], selected_stop[1])
 
         data = user_input
         data[CONF_DEPARTURES_STOP_ID] = self.data[CONF_DEPARTURES_STOP_ID]
         data[CONF_DEPARTURES_NAME] = self.data[CONF_DEPARTURES_NAME]
+        data[CONF_DEPARTURES_SHORT_NAME] = self.data[CONF_DEPARTURES_SHORT_NAME]
         return self.async_create_entry(
             title=f"{data[CONF_DEPARTURES_NAME]} [{data[CONF_DEPARTURES_STOP_ID]}]",
             data=data,

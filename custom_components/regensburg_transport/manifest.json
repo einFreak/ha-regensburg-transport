@@ -1,0 +1,11 @@
+{
+  "domain": "regensburg_transport",
+  "name": "Regensburg Transport",
+  "codeowners": ["@einFreak"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://www.home-assistant.io/integrations/regensburg_transport",
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "requirements": []
+}

@@ -1,15 +1,18 @@
-"""The Berlin (BVG) and Brandenburg (VBB) transport integration."""
+"""The Regensburg Transport integration."""
+
 from __future__ import annotations
 
-from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.core import HomeAssistant
+import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN, SCAN_INTERVAL  # noqa
+from .const import DOMAIN, SCAN_INTERVAL  # noqa: F401
 
 PLATFORMS = [Platform.SENSOR]
+# Define the CONFIG_SCHEMA
+CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -24,7 +27,13 @@ async def config_entry_update_listener(hass: HomeAssistant, entry: ConfigEntry) 
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-def setup(
-    hass: HomeAssistant, config: ConfigType  # pylint: disable=unused-argument
-) -> bool:
+def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=unused-argument
+    """Set up the Regensburg Transport integration."""
     return True
+
+
+# async def async_setup(hass, config):
+#     # hass.states.async_set("hello_state.world", "Paulus")
+
+#     # Return boolean to indicate that initialization was successful.
+#     return True
