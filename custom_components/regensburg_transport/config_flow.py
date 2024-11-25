@@ -93,9 +93,7 @@ def list_stops(stops) -> vol.Schema | None:
         }
     )
 
-
-@config_entries.HANDLERS.register(DOMAIN)
-class TransportConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+class TransportConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN): # type: ignore[call-arg]
     """Handle the config flow for Regensburg Transport integration."""
 
     VERSION = 1

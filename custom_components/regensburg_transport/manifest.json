@@ -5,9 +5,9 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/einFreak/ha-regensburg-transport/",
-  "issue_tracker": "https://github.com/einFreak/ha-regensburg-transport/issues",
   "integration_type": "device",
   "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/einFreak/ha-regensburg-transport/issues",
   "requirements": [],
   "version": "0.1.0"
 }

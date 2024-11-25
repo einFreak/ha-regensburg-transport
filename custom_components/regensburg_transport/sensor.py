@@ -236,7 +236,7 @@ class DelaySensor(RegensburgTransportSensor):
             dif = next_departure.estimated - next_departure.planned
             minute_diff = dif.total_seconds() / 60
             return int(minute_diff)
-        return "N/A"
+        return 0
 
     def next_departure(self) -> StopEvent | None:
         """Return the next departure event."""
