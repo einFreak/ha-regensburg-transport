@@ -1,3 +1,9 @@
+[![version](https://img.shields.io/github/manifest-json/v/einFreak/ha-regensburg-transport?filename=custom_components%2Fregensburg_transport%2Fmanifest.json&color=slateblue)](https://github.com/einFreak/ha-regensburg-transport/releases/latest)
+![GitHub all releases](https://img.shields.io/github/downloads/einFreak/ha-regensburg-transport/total)
+[![HACS](https://img.shields.io/badge/HACS-Default-orange.svg?logo=HomeAssistantCommunityStore&logoColor=white)](https://github.com/hacs/integration)
+[![Ko-Fi](https://img.shields.io/static/v1.svg?label=%20&message=Ko-Fi&color=F16061&logo=ko-fi&logoColor=white)](https://www.ko-fi.com/einfreak)
+[![PayPal.Me](https://img.shields.io/static/v1.svg?label=%20&message=PayPal.Me&logo=paypal)](https://paypal.me/einfreak)
+
 # Regensburg (RVV) transport sensor for Home Assistant
 
 Custom sensor component that displays upcoming departures from your defined public transport stops for Regensburg (and RVV area).
