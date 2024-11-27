@@ -1,9 +1,11 @@
 # pylint: disable=duplicate-code
-"""Dresden (VVO) transport integration."""
+"""Regensburg (RVV) transport integration."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import logging
+from typing import Any
 
 import aiohttp
 import voluptuous as vol
@@ -15,7 +17,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
@@ -72,10 +74,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up the sensor platform through the Home Assistant UI (Config Flow)."""
     _LOGGER.debug("async_setup_entry: %s", config_entry.options)
+    config_data = dict(config_entry.data)
     async_add_entities(
         [
-            NextDepartureSensor(hass, config_entry.data),
-            DelaySensor(hass, config_entry.data),
+            NextDepartureSensor(hass, config_data),
+            DelaySensor(hass, config_data),
         ]
     )
 
@@ -106,11 +109,12 @@ class RegensburgTransportSensor(SensorEntity):
         """
         self.hass: HomeAssistant = hass
         self.config: dict = config
-        self.stop_id: int = config[CONF_DEPARTURES_STOP_ID]
+        self.stop_id: str = config[CONF_DEPARTURES_STOP_ID]
         self.sensor_name: str | None = config.get(CONF_DEPARTURES_NAME)
         self.sensor_shortname: str | None = config.get(CONF_DEPARTURES_SHORT_NAME)
+        self._state: str | None = None
 
-    async def async_update(self):
+    async def async_update(self) -> None:
         """Update the sensor state."""
         RegensburgTransportSensor.stop_events = await self.parse_departures()
 
@@ -134,15 +138,12 @@ class RegensburgTransportSensor(SensorEntity):
             response.raise_for_status()
             return await response.json()
 
-    async def parse_departures(self) -> list[StopEvent] | None:
+    async def parse_departures(self) -> list[StopEvent]:
         """Parse the departures from the API response and return a list of StopEvent objects."""
         try:
             response = await self.fetch_departures()
         except aiohttp.ClientError as ex:
             _LOGGER.warning("API error: %s", ex)
-            return []
-        except aiohttp.ClientTimeout as ex:
-            _LOGGER.warning("API timeout: %s", ex)
             return []
 
         _LOGGER.debug("OK: departures for %s: %s", self.stop_id, response)
@@ -162,10 +163,25 @@ class RegensburgTransportSensor(SensorEntity):
 class NextDepartureSensor(RegensburgTransportSensor):
     """Representation of a transport sensor."""
 
+    async def async_update(self) -> None:
+        """Update the sensor state."""
+        try:
+            await super().async_update()
+            next_departure = self.next_departure()
+        except aiohttp.ClientError as ex:
+            _LOGGER.warning("API error: %s", ex)
+            self._attr_available = False
+            return
+
+        if next_departure:
+            self._attr_available = True
+            hour_str = f"{next_departure.estimated.hour:d}:{next_departure.estimated.minute:02d}"
+            self._attr_native_value = f"{next_departure.transportation_nr} {next_departure.transportation_direction} at {hour_str}"
+        self._attr_native_value = "N/A"
+
     @property
     def name(self) -> str:
         """Return the name of the sensor."""
-        # return self.sensor_name or f"Stop ID: {self.stop_id}"
         return f"Next Departure {self.sensor_shortname}"
 
     @property
@@ -181,7 +197,7 @@ class NextDepartureSensor(RegensburgTransportSensor):
         return f"stop_{self.stop_id}_departures"
 
     @property
-    def state(self) -> str:
+    def native_value(self) -> str:
         """Return the state of the sensor."""
         next_departure = self.next_departure()
         if next_departure:
@@ -190,7 +206,7 @@ class NextDepartureSensor(RegensburgTransportSensor):
         return "N/A"
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
         """Return the state attributes of the sensor."""
         return {
             "departures": [
@@ -211,6 +227,23 @@ class NextDepartureSensor(RegensburgTransportSensor):
 class DelaySensor(RegensburgTransportSensor):
     """Representation of a transport sensor."""
 
+    async def async_update(self) -> None:
+        """Update the sensor state."""
+        try:
+            await super().async_update()
+            next_departure = self.next_departure()
+        except aiohttp.ClientError as ex:
+            _LOGGER.warning("API error: %s", ex)
+            self._attr_available = False
+            return
+
+        if next_departure:
+            self._attr_available = True
+            dif = next_departure.estimated - next_departure.planned
+            minute_diff = dif.total_seconds() / 60
+            self._attr_native_value = int(minute_diff)
+        self._attr_native_value = 0
+
     @property
     def name(self) -> str:
         """Return the name of the sensor."""
@@ -229,7 +262,7 @@ class DelaySensor(RegensburgTransportSensor):
         return f"stop_{self.stop_id}_delay"
 
     @property
-    def state(self) -> int:
+    def native_value(self) -> int:
         """Return the state of the sensor."""
         next_departure = self.next_departure()
         if next_departure:
