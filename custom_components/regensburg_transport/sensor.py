@@ -86,19 +86,6 @@ async def async_setup_entry(
 class RegensburgTransportSensor(SensorEntity):
     """Storing and updating RVV data to be used in sensor entities."""
 
-    stop_events: list[StopEvent] = []
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information about this entity."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self.stop_id)},
-            name=self.sensor_name,
-            manufacturer="RVV",
-            model="Station Sensor",
-            model_id=self.stop_id,
-        )
-
     def __init__(self, hass: HomeAssistant, config: dict) -> None:
         """Initialize the TransportSensor.
 
@@ -113,10 +100,22 @@ class RegensburgTransportSensor(SensorEntity):
         self.sensor_name: str | None = config.get(CONF_DEPARTURES_NAME)
         self.sensor_shortname: str | None = config.get(CONF_DEPARTURES_SHORT_NAME)
         self._state: str | None = None
+        self.stop_events: list[StopEvent] = []
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information about this entity."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.stop_id)},
+            name=self.sensor_name,
+            manufacturer="RVV",
+            model="Station Sensor",
+            model_id=self.stop_id,
+        )
 
     async def async_update(self) -> None:
         """Update the sensor state."""
-        RegensburgTransportSensor.stop_events = await self.parse_departures()
+        self.stop_events = await self.parse_departures()
 
     async def fetch_departures(self):
         """Fetch the departures from the API and return the JSON response."""
@@ -129,7 +128,7 @@ class RegensburgTransportSensor(SensorEntity):
                     "outputFormat": "rapidJSON",
                     "type_dm": "any",
                     "useRealtime": "1",
-                    "name_dm": "de:09362:12009",
+                    "name_dm": self.stop_id,
                     "limit": API_MAX_RESULTS,
                 },
                 timeout=30,
@@ -211,16 +210,16 @@ class NextDepartureSensor(RegensburgTransportSensor):
         return {
             "departures": [
                 event.to_string()
-                for event in RegensburgTransportSensor.stop_events or []
+                for event in self.stop_events or []
             ]
         }
 
     def next_departure(self) -> StopEvent | None:
         """Return the next departure event."""
-        if RegensburgTransportSensor.stop_events and isinstance(
-            RegensburgTransportSensor.stop_events, list
+        if self.stop_events and isinstance(
+            self.stop_events, list
         ):
-            return RegensburgTransportSensor.stop_events[0]
+            return self.stop_events[0]
         return None
 
 
@@ -273,8 +272,8 @@ class DelaySensor(RegensburgTransportSensor):
 
     def next_departure(self) -> StopEvent | None:
         """Return the next departure event."""
-        if RegensburgTransportSensor.stop_events and isinstance(
-            RegensburgTransportSensor.stop_events, list
+        if self.stop_events and isinstance(
+            self.stop_events, list
         ):
-            return RegensburgTransportSensor.stop_events[0]
+            return self.stop_events[0]
         return None
