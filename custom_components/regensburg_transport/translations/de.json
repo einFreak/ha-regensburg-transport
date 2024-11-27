@@ -1,0 +1,21 @@
+{
+    "config": {
+        "step": {
+            "stop": {
+                "data": {
+                    "name": "Name der Haltestelle",
+                    "stop_id": "ID der Haltestelle"
+                },
+                "description": "Wähle die gewünschte Haltestelle",
+                "title": "Haltestellenauswahl"
+            },
+            "user": {
+                "data": {
+                    "search": "Name der Haltestelle"
+                },
+                "description": "Gib den Namen der Haltestelle ein, um die Haltestellen-ID zu finden",
+                "title": "Suche Haltestelle"
+            }
+        }
+    }
+}

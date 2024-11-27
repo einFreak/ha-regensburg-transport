@@ -162,6 +162,12 @@ class RegensburgTransportSensor(SensorEntity):
 class NextDepartureSensor(RegensburgTransportSensor):
     """Representation of a transport sensor."""
 
+    def __init__(self, hass: HomeAssistant, config: dict) -> None:
+        """Initialize the DelaySensor."""
+        super().__init__(hass, config)
+        self._attr_available = False
+        self._attr_native_value = "N/A"
+
     async def async_update(self) -> None:
         """Update the sensor state."""
         try:
@@ -174,8 +180,14 @@ class NextDepartureSensor(RegensburgTransportSensor):
 
         if next_departure:
             self._attr_available = True
-            hour_str = f"{next_departure.estimated.hour:d}:{next_departure.estimated.minute:02d}"
-            self._attr_native_value = f"{next_departure.transportation_nr} {next_departure.transportation_direction} at {hour_str}"
+            hour_str = (
+                f"{next_departure.estimated.hour:d}:"
+                f"{next_departure.estimated.minute:02d}"
+            )
+            self._attr_native_value = (
+                f"{next_departure.transportation_nr} "
+                f"{next_departure.transportation_direction} at {hour_str}"
+            )
         self._attr_native_value = "N/A"
 
     @property
@@ -207,24 +219,23 @@ class NextDepartureSensor(RegensburgTransportSensor):
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         """Return the state attributes of the sensor."""
-        return {
-            "departures": [
-                event.to_string()
-                for event in self.stop_events or []
-            ]
-        }
+        return {"departures": [event.to_string() for event in self.stop_events or []]}
 
     def next_departure(self) -> StopEvent | None:
         """Return the next departure event."""
-        if self.stop_events and isinstance(
-            self.stop_events, list
-        ):
+        if self.stop_events and isinstance(self.stop_events, list):
             return self.stop_events[0]
         return None
 
 
 class DelaySensor(RegensburgTransportSensor):
     """Representation of a transport sensor."""
+
+    def __init__(self, hass: HomeAssistant, config: dict) -> None:
+        """Initialize the DelaySensor."""
+        super().__init__(hass, config)
+        self._attr_available = True
+        self._attr_native_value = 0
 
     async def async_update(self) -> None:
         """Update the sensor state."""
@@ -272,8 +283,6 @@ class DelaySensor(RegensburgTransportSensor):
 
     def next_departure(self) -> StopEvent | None:
         """Return the next departure event."""
-        if self.stop_events and isinstance(
-            self.stop_events, list
-        ):
+        if self.stop_events and isinstance(self.stop_events, list):
             return self.stop_events[0]
         return None
